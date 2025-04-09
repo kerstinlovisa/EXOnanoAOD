@@ -140,7 +140,7 @@ void MuonVertexTableProducer::produce(edm::StreamID, edm::Event& iEvent, const e
   auto const& tkerTopo = &iSetup.getData(tkerTopoToken_);
   edm::ESHandle<TransientTrackBuilder> builder = iSetup.getHandle(transientTrackBuilderToken_);
 
-  KalmanVertexFitter vertexFitter(true);
+  KalmanVertexFitter vertexFitter(true, true);
 
   int nPatPatVertices = 0;
   int nPatDSAVertices = 0;

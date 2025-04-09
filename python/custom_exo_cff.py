@@ -67,6 +67,11 @@ electronVertexTable = cms.EDProducer("ElectronVertexTableProducer",
     primaryVertex=cms.InputTag("offlineSlimmedPrimaryVertices")
 )
 
+electronExtendedTable = cms.EDProducer("ElectronExtendedTableProducer",
+    name=cms.string("Electron"),
+    electrons=cms.InputTag("linkedObjects","electrons"),
+)
+
 def add_mdsTables(process):
     process.ca4CSCrechitClusters = cscRechitClusterProducer    
     process.ca4DTrechitClusters = dtRechitClusterProducer
@@ -106,8 +111,13 @@ def add_electronVertexTables(process):
     process.load('TrackPropagation.SteppingHelixPropagator.SteppingHelixPropagatorAny_cfi')
 
     process.electronVertexTable = electronVertexTable
+    process.electronExtendedTable = electronExtendedTable
+
     process.electronVertexTask = cms.Task(process.electronVertexTable)
+    process.electronExtendedTask = cms.Task(process.electronExtendedTable)
+
     process.nanoTableTaskCommon.add(process.electronVertexTask)
+    process.nanoTableTaskCommon.add(process.electronExtendedTask)
 
     return process
 
@@ -125,7 +135,7 @@ def update_genParticleTable(process):
 
 def add_exonanoTables(process):
 
-    # process = add_mdsTables(process) ## Commented out right now because it needs changes in PhysicsTools/NanoAOD
+    process = add_mdsTables(process)
     process = add_dsamuonTables(process)
     process = add_electronVertexTables(process)
     process = update_genParticleTable(process)
