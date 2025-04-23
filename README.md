@@ -4,8 +4,8 @@ Development of custom cms EXO PAG nanoAOD format
 
 ## Setup in CMSSW
 ```
-cmsrel CMSSW_15_0_0_pre3
-cd CMSSW_15_0_0_pre3/src
+cmsrel CMSSW_15_1_0_pre2
+cd CMSSW_15_1_0_pre2/src
 cmsenv
 git cms-init
 mkdir PhysicsTools
@@ -13,14 +13,6 @@ cd PhysicsTools
 git clone git@github.com:kerstinlovisa/EXOnanoAOD.git
 scram b -j
 ```
-## Enable MDSnano tables
-Before EXOnanoAOD is integrated into cmssw, we need the following commit to include the simple table to produce new data-type
-```
-git remote add kakwok git@github.com:kakwok/cmssw.git 
-git cms-addpkg PhysicsTools/NanoAOD
-git cherry-pick fb5f0b9 
-```
-Then un-comment the line in `custom_exo_cff.py`
 
 # Setup
 Please include your customizations as python scripts under `python`, and if you need a custom producer add it under `plugins`.
