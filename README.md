@@ -8,6 +8,7 @@ cmsrel CMSSW_15_1_0_pre2
 cd CMSSW_15_1_0_pre2/src
 cmsenv
 git cms-init
+git cms-addpkg PhysicsTools/NanoAOD
 mkdir PhysicsTools
 cd PhysicsTools
 git clone git@github.com:kerstinlovisa/EXOnanoAOD.git
@@ -35,6 +36,11 @@ cmsRun Run3_2023_PAT_EXONANO_template.py
 # Event size of customized NanoAOD
 Check the event size of your custom EXOnanoAOD implementations in your nanoAOD root file (replace `nanoAOD.root`) by running:
 ```
-git cms-add
+git cms-addpkg PhysicsTools/NanoAOD
 $CMSSW_BASE/src/PhysicsTools/NanoAOD/test/inspectNanoFile.py nanoAOD.root --size size.html
 ```
+To check multiple datasets, edit use the script: 
+```
+sh test/run.sh
+```
+where output json files can be analyzed by `test/analyze.py`
