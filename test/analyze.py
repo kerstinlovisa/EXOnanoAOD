@@ -148,11 +148,8 @@ if __name__ == "__main__":
                    ("size_EGamma_v1.json", "size_EGamma_ref.json"),
                    #("size_Muon.json","size_Muon_ref.json"),
                    ("size_Muon_v1.json","size_Muon_ref.json"),
-                   #("size_MDSskim.json","size_MDSskim_ref.json"),
-                   ("size_MDSskim_v1.json","size_MDSskim_ref.json"),
                    #("size_TT.json","size_TT_ref.json"),
                    ("size_TT_v1.json","size_TT_ref.json")
-                   #("size_signal.json","size_TT_ref.json")
                    ]
     for size_file, ref_file in json_files:
         parsed_data = parse_json(size_file, ref_file)
