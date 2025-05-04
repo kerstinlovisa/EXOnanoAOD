@@ -22,12 +22,14 @@
 #include "DataFormats/VertexReco/interface/VertexFwd.h"
 #include "DataFormats/VertexReco/interface/Vertex.h"
 
+#include "DataFormats/PatCandidates/interface/PackedCandidate.h"
 
 class DSAMuonTableProducer : public edm::global::EDProducer<> {
   public:
     DSAMuonTableProducer(const edm::ParameterSet &iConfig)
       :
-      dsaMuonTag_(consumes<std::vector<reco::Track>>(iConfig.getParameter<edm::InputTag>("dsaMuons"))),
+      //      dsaMuonTag_(consumes<std::vector<reco::Track>>(iConfig.getParameter<edm::InputTag>("dsaMuons"))),
+      dsaMuonTag_(consumes<edm::View<pat::PackedCandidate>>(iConfig.getParameter<edm::InputTag>("dsaMuons"))),
       muonTag_(consumes<std::vector<pat::Muon>>(iConfig.getParameter<edm::InputTag>("muons"))),
       vtxTag_(consumes<reco::VertexCollection>(iConfig.getParameter<edm::InputTag>("primaryVertex"))),
       bsTag_(consumes<reco::BeamSpot>(iConfig.getParameter<edm::InputTag>("beamspot"))),
@@ -58,7 +60,8 @@ class DSAMuonTableProducer : public edm::global::EDProducer<> {
     int getDTSegments(const reco::Track& dsaMuon) const;
     int getCSCSegments(const reco::Track& dsaMuon) const;
 
-    edm::EDGetTokenT<std::vector<reco::Track>> dsaMuonTag_;
+  //    edm::EDGetTokenT<std::vector<reco::Track>> dsaMuonTag_;
+    edm::EDGetTokenT<edm::View<pat::PackedCandidate>> dsaMuonTag_;
     edm::EDGetTokenT<std::vector<pat::Muon>> muonTag_;
     edm::EDGetTokenT<reco::VertexCollection> vtxTag_;
     edm::EDGetTokenT<reco::BeamSpot> bsTag_;
@@ -137,8 +140,8 @@ void DSAMuonTableProducer::produce(edm::StreamID, edm::Event& iEvent, const edm:
     trkNumCSCHits.push_back(dsaMuon.hitPattern().numberOfValidMuonCSCHits());
     normChi2.push_back(dsaMuon.normalizedChi2());
 
-    outerEta.push_back(dsaMuon.outerEta());
-    outerPhi.push_back(dsaMuon.outerPhi());
+    outerEta.push_back(dsaMuon.extra().isNonnull() && dsaMuon.extra().isAvailable() ? dsaMuon.outerEta() : -999);
+    outerPhi.push_back(dsaMuon.extra().isNonnull() && dsaMuon.extra().isAvailable() ? dsaMuon.outerPhi() : -999);
 
     dzPV.push_back(dsaMuon.dz(pv.position()));
     dzPVErr.push_back(std::hypot(dsaMuon.dzError(), pv.zError()));
@@ -327,27 +330,30 @@ bool DSAMuonTableProducer::passesDisplacedID(const reco::Track& dsaMuon) const {
 int DSAMuonTableProducer::getMatches(const pat::Muon& muon, const reco::Track& dsaMuon, float minPositionDiff) const {
 
   int nMatches = 0;
-  
-  for (auto& hit : dsaMuon.recHits()){
 
-    if (!hit->isValid()) continue;
-    DetId id = hit->geographicalId();
-    if (id.det() != DetId::Muon) continue;
+  if( dsaMuon.extra().isNonnull() && dsaMuon.extra().isAvailable() ) {
+    
+    for (auto& hit : dsaMuon.recHits()){
 
-    if (id.subdetId() == MuonSubdetId::DT || id.subdetId() == MuonSubdetId::CSC){
+      if (!hit->isValid()) continue;
+      DetId id = hit->geographicalId();
+      if (id.det() != DetId::Muon) continue;
+      
+      if (id.subdetId() == MuonSubdetId::DT || id.subdetId() == MuonSubdetId::CSC){
 
-      for (auto& chamber : muon.matches()) {
-
-        if (chamber.id.rawId() != id.rawId()) continue;
-
-        for (auto& segment : chamber.segmentMatches) {
-          
-          if (fabs(segment.x - hit->localPosition().x()) < minPositionDiff &&
-              fabs(segment.y - hit->localPosition().y()) < minPositionDiff) {
+	for (auto& chamber : muon.matches()) {
+	  
+	  if (chamber.id.rawId() != id.rawId()) continue;
+	  
+	  for (auto& segment : chamber.segmentMatches) {
+	    
+	    if (fabs(segment.x - hit->localPosition().x()) < minPositionDiff &&
+		fabs(segment.y - hit->localPosition().y()) < minPositionDiff) {
               nMatches++;
               break;
-          }
-        }
+	    }
+	  }
+	}
       }
     }
   }
@@ -358,26 +364,29 @@ int DSAMuonTableProducer::getDTMatches(const pat::Muon& muon, const reco::Track&
 
   int nMatches = 0;
 
-  for (auto& hit : dsaMuon.recHits()){
-
-    if (!hit->isValid()) continue;
-    DetId id = hit->geographicalId();
-    if (id.det() != DetId::Muon) continue;
-
-    if (id.subdetId() == MuonSubdetId::DT){
-
-      for (auto& chamber : muon.matches()) {
-
-        if (chamber.id.rawId() != id.rawId()) continue;
-
-        for (auto& segment : chamber.segmentMatches) {
-
-          if (fabs(segment.x - hit->localPosition().x()) < minPositionDiff &&
-              fabs(segment.y - hit->localPosition().y()) < minPositionDiff) {
+  if( dsaMuon.extra().isNonnull() && dsaMuon.extra().isAvailable() ) {
+    
+    for (auto& hit : dsaMuon.recHits()){
+      
+      if (!hit->isValid()) continue;
+      DetId id = hit->geographicalId();
+      if (id.det() != DetId::Muon) continue;
+      
+      if (id.subdetId() == MuonSubdetId::DT){
+	
+	for (auto& chamber : muon.matches()) {
+	  
+	  if (chamber.id.rawId() != id.rawId()) continue;
+	  
+	  for (auto& segment : chamber.segmentMatches) {
+	    
+	    if (fabs(segment.x - hit->localPosition().x()) < minPositionDiff &&
+		fabs(segment.y - hit->localPosition().y()) < minPositionDiff) {
               nMatches++;
               break;
-          }
-        }
+	    }
+	  }
+	}
       }
     }
   }
@@ -388,26 +397,29 @@ int DSAMuonTableProducer::getCSCMatches(const pat::Muon& muon, const reco::Track
 
   int nMatches = 0;
 
-  for (auto& hit : dsaMuon.recHits()){
-
-    if (!hit->isValid()) continue;
-    DetId id = hit->geographicalId();
-    if (id.det() != DetId::Muon) continue;
-
-    if (id.subdetId() == MuonSubdetId::CSC){
-
-      for (auto& chamber : muon.matches()) {
-
-        if (chamber.id.rawId() != id.rawId()) continue;
-
-        for (auto& segment : chamber.segmentMatches) {
-
-          if (fabs(segment.x - hit->localPosition().x()) < minPositionDiff &&
-              fabs(segment.y - hit->localPosition().y()) < minPositionDiff) {
+  if( dsaMuon.extra().isNonnull() && dsaMuon.extra().isAvailable() ) {
+    
+    for (auto& hit : dsaMuon.recHits()){
+      
+      if (!hit->isValid()) continue;
+      DetId id = hit->geographicalId();
+      if (id.det() != DetId::Muon) continue;
+      
+      if (id.subdetId() == MuonSubdetId::CSC){
+	
+	for (auto& chamber : muon.matches()) {
+	  
+	  if (chamber.id.rawId() != id.rawId()) continue;
+	  
+	  for (auto& segment : chamber.segmentMatches) {
+	    
+	    if (fabs(segment.x - hit->localPosition().x()) < minPositionDiff &&
+		fabs(segment.y - hit->localPosition().y()) < minPositionDiff) {
               nMatches++;
               break;
-          }
-        }
+	    }
+	  }
+	}
       }
     }
   }
@@ -416,33 +428,39 @@ int DSAMuonTableProducer::getCSCMatches(const pat::Muon& muon, const reco::Track
 
 int DSAMuonTableProducer::getTotSegments(const reco::Track& dsaMuon) const {
   int nHits = 0;
-  for (auto& hit : dsaMuon.recHits()){
-    if (!hit->isValid()) continue;
-    DetId id = hit->geographicalId();
-    if (id.det() != DetId::Muon) continue;
-    if (id.subdetId() == MuonSubdetId::DT || id.subdetId() == MuonSubdetId::CSC) nHits++;
+  if( dsaMuon.extra().isNonnull() && dsaMuon.extra().isAvailable() ) {
+    for (auto& hit : dsaMuon.recHits()){
+      if (!hit->isValid()) continue;
+      DetId id = hit->geographicalId();
+      if (id.det() != DetId::Muon) continue;
+      if (id.subdetId() == MuonSubdetId::DT || id.subdetId() == MuonSubdetId::CSC) nHits++;
+    }
   }
   return nHits;
 }
 
 int DSAMuonTableProducer::getDTSegments(const reco::Track& dsaMuon) const {
   int nHits = 0;
-  for (auto& hit : dsaMuon.recHits()){
-    if (!hit->isValid()) continue;
-    DetId id = hit->geographicalId();
-    if (id.det() != DetId::Muon) continue;
-    if (id.subdetId() == MuonSubdetId::DT) nHits++;
+  if( dsaMuon.extra().isNonnull() && dsaMuon.extra().isAvailable() ) {
+    for (auto& hit : dsaMuon.recHits()){
+      if (!hit->isValid()) continue;
+      DetId id = hit->geographicalId();
+      if (id.det() != DetId::Muon) continue;
+      if (id.subdetId() == MuonSubdetId::DT) nHits++;
+    }
   }
   return nHits;
 }
 
 int DSAMuonTableProducer::getCSCSegments(const reco::Track& dsaMuon) const {
   int nHits = 0;
-  for (auto& hit : dsaMuon.recHits()){
-    if (!hit->isValid()) continue;
-    DetId id = hit->geographicalId();
-    if (id.det() != DetId::Muon) continue;
-    if (id.subdetId() == MuonSubdetId::CSC) nHits++;
+  if( dsaMuon.extra().isNonnull() && dsaMuon.extra().isAvailable() ) {
+    for (auto& hit : dsaMuon.recHits()){
+      if (!hit->isValid()) continue;
+      DetId id = hit->geographicalId();
+      if (id.det() != DetId::Muon) continue;
+      if (id.subdetId() == MuonSubdetId::CSC) nHits++;
+    }
   }
   return nHits;
 }

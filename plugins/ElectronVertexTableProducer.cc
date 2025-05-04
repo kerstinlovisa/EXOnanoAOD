@@ -125,7 +125,7 @@ void ElectronVertexTableProducer::produce(edm::StreamID, edm::Event& iEvent, con
   auto const& tkerTopo = &iSetup.getData(tkerTopoToken_);
   edm::ESHandle<TransientTrackBuilder> builder = iSetup.getHandle(transientTrackBuilderToken_);
 
-  KalmanVertexFitter vertexFitter(true);
+  KalmanVertexFitter vertexFitter(true, true);
 
   int nElectronVertices = 0;
   int refittedTrackIdx_counter = 0;
@@ -319,9 +319,19 @@ void ElectronVertexTableProducer::produce(edm::StreamID, edm::Event& iEvent, con
           refittedVertEta.push_back(diele_state.globalMomentum().eta());
           refittedVertPhi.push_back(diele_state.globalMomentum().phi());
         }
+	else {
+	  refittedVertMass.push_back(-999.);
+	  refittedVertPt.push_back(-999.);
+	  refittedVertEta.push_back(-999.);
+	  refittedVertPhi.push_back(-999.);
+	}
       }
       catch (std::exception ex) {
 	  std::cout << "kinematic vertex fit failed!" << std::endl;
+	  refittedVertMass.push_back(-999.);
+	  refittedVertPt.push_back(-999.);
+	  refittedVertEta.push_back(-999.);
+	  refittedVertPhi.push_back(-999.);
       }
     }
   }

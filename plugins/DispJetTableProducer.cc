@@ -44,20 +44,10 @@
 
 class DispJetTableProducer : public edm::stream::EDProducer<> {
 protected:
-
-  float dEtaInSeed(const pat::Electron* el) const;
-  float getPFIso(const pat::Muon& muon) const;
-  float getPFIso(const pat::Electron& electron) const;
-  int findMatchedJet(const reco::Candidate& lepton, const edm::Handle< std::vector< pat::Jet > >& jets);
-  void fillLeptonJetVariables(const reco::GsfElectron *el, const reco::Muon *mu, edm::Handle< std::vector< pat::Jet > >& jets, const reco::Vertex& vertex, const double rho);
-
+  
   edm::ESGetToken<TransientTrackBuilder, TransientTrackRecord> ttbToken_;
-  edm::EDGetTokenT<double> rhoTag_;
   edm::EDGetTokenT<std::vector<pat::Electron> > electronTag_;
   edm::EDGetTokenT<std::vector<pat::Muon> > muonTag_;
-  edm::EDGetTokenT<std::vector<pat::Jet> > jetTag_;
-  edm::EDGetTokenT<std::vector<pat::Jet> > jetFatTag_;
-  edm::EDGetTokenT<std::vector<pat::Jet> > jetSubTag_;
   edm::EDGetTokenT<reco::VertexCollection> vtxTag_;
   edm::EDGetTokenT<reco::VertexCollection> secVtxTag_;
 
@@ -65,53 +55,28 @@ protected:
   
   std::vector<int> el_idx;
   std::vector<bool> el_lIVF_match;
-  std::vector<bool> el_isEB, el_isEE;
-  std::vector<float> el_superClusterOverP, el_ecalEnergy, el_dEtaInSeed;
-  std::vector<int> el_numberInnerHitsMissing, el_numberOfValidPixelHits, el_numberOfValidTrackerHits;
   std::vector<int> el_IVF_df, el_IVF_ntracks, el_IVF_elid;
   std::vector<float> el_IVF_x, el_IVF_y, el_IVF_z, el_IVF_cx, el_IVF_cy, el_IVF_cz, el_IVF_chi2, el_IVF_pt, el_IVF_eta, el_IVF_phi, el_IVF_E, el_IVF_mass;
   std::vector<int> el_IVF_trackcharge, el_IVF_trackelid, el_IVF_trackvtxid;
   std::vector<float> el_IVF_trackpt, el_IVF_tracketa, el_IVF_trackphi, el_IVF_trackE, el_IVF_trackdxy, el_IVF_trackdz;
   std::vector<float> el_IVF_tracksignedIP2D, el_IVF_tracksignedIP3D, el_IVF_tracksignedIP2Dsig, el_IVF_tracksignedIP3Dsig;
-  
-  std::vector<float> el_jetPtRatio, el_jetPtRel;
-  std::vector<int> el_jetIdx, el_jetSelectedChargedMultiplicity;
-  std::vector<int> el_jetFatIdx, el_jetSubIdx;
-  std::vector<float> el_relIso0p4;
-  std::vector<float> el_sigmaIetaIeta, el_deltaPhiSuperClusterTrack, el_deltaEtaSuperClusterTrack, el_eInvMinusPInv, el_hOverE;
-  
-  std::vector<float> el_dxy, el_dz, el_3dIP, el_3dIPSig;
   std::vector<float> el_IVF_signedIP2D, el_IVF_signedIP3D, el_IVF_signedIP2Dsig, el_IVF_signedIP3Dsig;
    
   std::vector<int> mu_idx;
   std::vector<bool> mu_lIVF_match;
-  std::vector<float> mu_innerTrackValidFraction, mu_globalTrackNormalizedChi2, mu_CQChi2Position, mu_CQTrackKink;
-  std::vector<int> mu_numberOfMatchedStation, mu_numberOfValidPixelHits, mu_numberOfValidTrackerHits, mu_numberInnerHitsMissing, mu_trackerLayersWithMeasurement, mu_numberInnerHits;
   std::vector<int> mu_IVF_df, mu_IVF_ntracks, mu_IVF_muid;
   std::vector<float> mu_IVF_x, mu_IVF_y, mu_IVF_z, mu_IVF_cx, mu_IVF_cy, mu_IVF_cz, mu_IVF_chi2, mu_IVF_pt, mu_IVF_eta, mu_IVF_phi, mu_IVF_E, mu_IVF_mass;
   std::vector<int> mu_IVF_trackcharge, mu_IVF_trackmuid, mu_IVF_trackvtxid;
   std::vector<float> mu_IVF_trackpt, mu_IVF_tracketa, mu_IVF_trackphi, mu_IVF_trackE, mu_IVF_trackdxy, mu_IVF_trackdz;
   std::vector<float> mu_IVF_tracksignedIP2D, mu_IVF_tracksignedIP3D, mu_IVF_tracksignedIP2Dsig, mu_IVF_tracksignedIP3Dsig;
-  
-  std::vector<float> mu_jetPtRatio, mu_jetPtRel;
-  std::vector<int> mu_jetIdx, mu_jetSelectedChargedMultiplicity;
-  std::vector<int> mu_jetFatIdx, mu_jetSubIdx;
-  std::vector<float> mu_relIso0p4;
-  std::vector<float> mu_trackPt, mu_trackPtErr;
-  
-  std::vector<float> mu_dxy, mu_dz, mu_3dIP, mu_3dIPSig;
   std::vector<float> mu_IVF_signedIP2D, mu_IVF_signedIP3D, mu_IVF_signedIP2Dsig, mu_IVF_signedIP3Dsig;
 
 public:
   DispJetTableProducer(edm::ParameterSet const& params)
     :
     ttbToken_(esConsumes(edm::ESInputTag("", "TransientTrackBuilder"))),
-    rhoTag_(consumes<double>(params.getParameter<edm::InputTag>("rho"))),
     electronTag_(consumes<std::vector<pat::Electron>>(params.getParameter<edm::InputTag>("electrons"))),
     muonTag_(consumes<std::vector<pat::Muon>>(params.getParameter<edm::InputTag>("muons"))),
-    jetTag_(consumes<std::vector<pat::Jet>>(params.getParameter<edm::InputTag>("jets"))),
-    jetFatTag_(consumes<std::vector<pat::Jet>>(params.getParameter<edm::InputTag>("jetsFat"))),
-    jetSubTag_(consumes<std::vector<pat::Jet>>(params.getParameter<edm::InputTag>("jetsSub"))),
     vtxTag_(consumes<reco::VertexCollection>(params.getParameter<edm::InputTag>("primaryVertex"))),
     secVtxTag_(consumes<reco::VertexCollection>(params.getParameter<edm::InputTag>("secondaryVertex"))) {
        produces<nanoaod::FlatTable>("DispJetElectron");
@@ -128,23 +93,11 @@ public:
 
     theB = &iSetup.getData(ttbToken_);
     
-    edm::Handle<double> rhoHandle;
-    iEvent.getByToken(rhoTag_, rhoHandle);
-    
     edm::Handle<std::vector<pat::Electron> > electronHandle;
     iEvent.getByToken(electronTag_, electronHandle);
     
     edm::Handle<std::vector<pat::Muon> > muonHandle;
     iEvent.getByToken(muonTag_, muonHandle);
-    
-    edm::Handle<std::vector<pat::Jet> > jetHandle;
-    iEvent.getByToken(jetTag_, jetHandle);
-
-    edm::Handle<std::vector<pat::Jet> > jetFatHandle;
-    iEvent.getByToken(jetFatTag_, jetFatHandle);
-
-    edm::Handle<std::vector<pat::Jet> > jetSubHandle;
-    iEvent.getByToken(jetSubTag_, jetSubHandle);
     
     edm::Handle<reco::VertexCollection> primaryVertexHandle;
     iEvent.getByToken(vtxTag_, primaryVertexHandle);
@@ -162,40 +115,22 @@ public:
     
     el_idx.clear();
     el_lIVF_match.clear();
-    el_isEB.clear(); el_isEE.clear();
-    el_superClusterOverP.clear(); el_ecalEnergy.clear(); el_dEtaInSeed.clear();
-    el_numberInnerHitsMissing.clear(); el_numberOfValidPixelHits.clear(); el_numberOfValidTrackerHits.clear();
     el_IVF_df.clear(); el_IVF_ntracks.clear(); el_IVF_elid.clear();
     el_IVF_x.clear(); el_IVF_y.clear(); el_IVF_z.clear(); el_IVF_cx.clear(); el_IVF_cy.clear(); el_IVF_cz.clear(); el_IVF_chi2.clear(); el_IVF_pt.clear(); el_IVF_eta.clear(); el_IVF_phi.clear(); el_IVF_E.clear(); el_IVF_mass.clear();
     el_IVF_trackcharge.clear(); el_IVF_trackelid.clear(); el_IVF_trackvtxid.clear();
     el_IVF_trackpt.clear(); el_IVF_tracketa.clear(); el_IVF_trackphi.clear(); el_IVF_trackE.clear(); el_IVF_trackdxy.clear(); el_IVF_trackdz.clear();
     el_IVF_tracksignedIP2D.clear(); el_IVF_tracksignedIP2Dsig.clear(); el_IVF_tracksignedIP3D.clear(); el_IVF_tracksignedIP3Dsig.clear();
     
-    el_jetPtRatio.clear(); el_jetPtRel.clear();
-    el_jetIdx.clear(); el_jetSelectedChargedMultiplicity.clear();
-    el_jetFatIdx.clear(); el_jetSubIdx.clear();
-    el_relIso0p4.clear();
-    el_sigmaIetaIeta.clear(); el_deltaPhiSuperClusterTrack.clear(); el_deltaEtaSuperClusterTrack.clear(); el_eInvMinusPInv.clear(); el_hOverE.clear();    
-    el_dxy.clear(); el_dz.clear(); el_3dIP.clear(); el_3dIPSig.clear();
     el_IVF_signedIP2D.clear(); el_IVF_signedIP2Dsig.clear(); el_IVF_signedIP3D.clear(); el_IVF_signedIP3Dsig.clear();
     
     mu_idx.clear();
     mu_lIVF_match.clear();
-    mu_innerTrackValidFraction.clear(); mu_globalTrackNormalizedChi2.clear(); mu_CQChi2Position.clear(); mu_CQTrackKink.clear();
-    mu_numberOfMatchedStation.clear(); mu_numberOfValidPixelHits.clear(); mu_numberOfValidTrackerHits.clear(); mu_numberInnerHitsMissing.clear(); mu_trackerLayersWithMeasurement.clear(); mu_numberInnerHits.clear();
     mu_IVF_df.clear(); mu_IVF_ntracks.clear(); mu_IVF_muid.clear();
     mu_IVF_x.clear(); mu_IVF_y.clear(); mu_IVF_z.clear(); mu_IVF_cx.clear(); mu_IVF_cy.clear(); mu_IVF_cz.clear(); mu_IVF_chi2.clear(); mu_IVF_pt.clear(); mu_IVF_eta.clear(); mu_IVF_phi.clear(); mu_IVF_E.clear(); mu_IVF_mass.clear();
     mu_IVF_trackcharge.clear(); mu_IVF_trackmuid.clear(); mu_IVF_trackvtxid.clear();
     mu_IVF_trackpt.clear(); mu_IVF_tracketa.clear(); mu_IVF_trackphi.clear(); mu_IVF_trackE.clear(); mu_IVF_trackdxy.clear(); mu_IVF_trackdz.clear();
     mu_IVF_tracksignedIP2D.clear(); mu_IVF_tracksignedIP2Dsig.clear(); mu_IVF_tracksignedIP3D.clear(); mu_IVF_tracksignedIP3Dsig.clear();
     
-    mu_jetPtRatio.clear(); mu_jetPtRel.clear();
-    mu_jetIdx.clear(); mu_jetSelectedChargedMultiplicity.clear();
-    mu_jetFatIdx.clear(); mu_jetSubIdx.clear();
-    mu_relIso0p4.clear();
-    mu_trackPt.clear(); mu_trackPtErr.clear();
-    
-    mu_dxy.clear(); mu_dz.clear(); mu_3dIP.clear(); mu_3dIPSig.clear();
     mu_IVF_signedIP2D.clear(); mu_IVF_signedIP2Dsig.clear(); mu_IVF_signedIP3D.clear(); mu_IVF_signedIP3Dsig.clear();
      
     int ntrack_max = 100;
@@ -210,43 +145,8 @@ public:
       if(el.pt() < 7) continue;     
       if(fabs(el.eta()) > 2.5) continue;
       
-      int ielCand = 0;
-      for(edm::Ref<pat::PackedCandidateCollection> cand : el.associatedPackedPFCandidates()){	  
-	if( cand.isNonnull() and cand.isAvailable() ) {
-	  break;
-	}       
-	ielCand++;
-      }
-      
       el_idx.push_back(i);
       el_lIVF_match.push_back(false);
-      
-      el_isEB.push_back(el.isEB());
-      el_isEE.push_back(el.isEE());
-      el_superClusterOverP.push_back(el.eSuperClusterOverP());
-      el_ecalEnergy.push_back(el.ecalEnergy());
-      el_dEtaInSeed.push_back(std::abs(dEtaInSeed(&el)));
-      el_numberInnerHitsMissing.push_back(el.gsfTrack()->hitPattern().numberOfLostHits(reco::HitPattern::MISSING_INNER_HITS));
-      el_numberOfValidPixelHits.push_back((!el.gsfTrack().isNull())? el.gsfTrack()->hitPattern().numberOfValidPixelHits() : 0);
-      el_numberOfValidTrackerHits.push_back((!el.gsfTrack().isNull())? el.gsfTrack()->hitPattern().numberOfValidTrackerHits() : 0);
-      
-      el_relIso0p4.push_back(getPFIso(el));
-      el_sigmaIetaIeta.push_back(el.full5x5_sigmaIetaIeta());
-      el_deltaPhiSuperClusterTrack.push_back(fabs(el.deltaPhiSuperClusterTrackAtVtx()));
-      el_deltaEtaSuperClusterTrack.push_back(fabs(el.deltaEtaSuperClusterTrackAtVtx()));
-      el_eInvMinusPInv.push_back((1.0 - el.eSuperClusterOverP())/el.correctedEcalEnergy());
-      el_hOverE.push_back(el.hadronicOverEm());
-      
-      el_dxy.push_back(el.dB(pat::Electron::PV2D));
-      el_dz.push_back(el.dB(pat::Electron::PVDZ));
-      el_3dIP.push_back(el.dB(pat::Electron::PV3D));
-      el_3dIPSig.push_back(fabs(el.dB(pat::Electron::PV3D)/el.edB(pat::Electron::PV3D)));
-      
-      fillLeptonJetVariables(&el, NULL, jetHandle, pv, *rhoHandle);
-
-      const reco::Candidate *el_cand = dynamic_cast<const reco::Candidate*>(&el);
-      el_jetFatIdx.push_back(findMatchedJet(*el_cand, jetFatHandle));
-      el_jetSubIdx.push_back(findMatchedJet(*el_cand, jetSubHandle));
       
       bool new_vtx = false;
       double dR, deta, normchi2;
@@ -347,32 +247,6 @@ public:
       mu_idx.push_back(i);
       mu_lIVF_match.push_back(false);
       
-      mu_innerTrackValidFraction.push_back((!mu.innerTrack().isNull()) ? mu.innerTrack()->validFraction() : -1);
-      mu_globalTrackNormalizedChi2.push_back((!mu.globalTrack().isNull()) ? mu.globalTrack()->normalizedChi2() : -1);
-      mu_CQChi2Position.push_back(mu.combinedQuality().chi2LocalPosition);
-      mu_CQTrackKink.push_back(mu.combinedQuality().trkKink);
-      mu_numberOfMatchedStation.push_back(mu.numberOfMatchedStations());
-      mu_numberOfValidPixelHits.push_back((!mu.innerTrack().isNull()) ? mu.innerTrack()->hitPattern().numberOfValidPixelHits() : 0);
-      mu_numberOfValidTrackerHits.push_back((!mu.innerTrack().isNull()) ? mu.innerTrack()->hitPattern().numberOfValidTrackerHits() : 0);
-      mu_numberInnerHitsMissing.push_back(mu.innerTrack()->hitPattern().numberOfLostHits(reco::HitPattern::MISSING_INNER_HITS));
-      mu_trackerLayersWithMeasurement.push_back((!mu.innerTrack().isNull()) ? mu.innerTrack()->hitPattern().trackerLayersWithMeasurement() : 0);
-      mu_numberInnerHits.push_back((!mu.globalTrack().isNull()) ? mu.globalTrack()->hitPattern().numberOfValidMuonHits() : (!mu.outerTrack().isNull() ? mu.outerTrack()->hitPattern().numberOfValidMuonHits() : 0));
-      
-      mu_relIso0p4.push_back(getPFIso(mu));
-      mu_trackPt.push_back(mu.innerTrack()->pt());
-      mu_trackPtErr.push_back(mu.innerTrack()->ptError());
-      
-      mu_dxy.push_back(mu.dB(pat::Muon::PV2D));
-      mu_dz.push_back(mu.dB(pat::Muon::PVDZ));
-      mu_3dIP.push_back(mu.dB(pat::Muon::PV3D));
-      mu_3dIPSig.push_back(fabs(mu.dB(pat::Muon::PV3D)/mu.edB(pat::Muon::PV3D)));
-      
-      fillLeptonJetVariables(NULL, &mu, jetHandle, pv, *rhoHandle);
-
-      const reco::Candidate *mu_cand = dynamic_cast<const reco::Candidate*>(&mu);
-      mu_jetFatIdx.push_back(findMatchedJet(*mu_cand, jetFatHandle));
-      mu_jetSubIdx.push_back(findMatchedJet(*mu_cand, jetSubHandle));      
-      
       bool new_vtx = false;
       double ptdiff, normchi2;
       double minptdiff = 10, minnormchi2 = 10000;
@@ -463,30 +337,6 @@ public:
     
     dispJetElectronTab->addColumn<int>("idx", el_idx, "");
     dispJetElectronTab->addColumn<bool>("lIVF_match", el_lIVF_match, "");
-    dispJetElectronTab->addColumn<bool>("isEB", el_isEB, "");
-    dispJetElectronTab->addColumn<bool>("isEE", el_isEE, "");
-    dispJetElectronTab->addColumn<float>("superClusterOverP", el_superClusterOverP, "");
-    dispJetElectronTab->addColumn<float>("ecalEnergy", el_ecalEnergy, "");
-    dispJetElectronTab->addColumn<float>("dEtaInSeed", el_dEtaInSeed, "");
-    dispJetElectronTab->addColumn<int>("numberInnerHitsMissing", el_numberInnerHitsMissing, "");
-    dispJetElectronTab->addColumn<int>("numberOfValidPixelHits", el_numberOfValidPixelHits, "");
-    dispJetElectronTab->addColumn<int>("numberOfValidTrackerHits", el_numberOfValidTrackerHits, "");
-    dispJetElectronTab->addColumn<float>("relIso0p4", el_relIso0p4, "");
-    dispJetElectronTab->addColumn<float>("jetPtRatio", el_jetPtRatio, "");
-    dispJetElectronTab->addColumn<float>("jetPtRel", el_jetPtRel, "");
-    dispJetElectronTab->addColumn<int>("jetIdx", el_jetIdx, "");
-    dispJetElectronTab->addColumn<int>("jetFatIdx", el_jetFatIdx, "");
-    dispJetElectronTab->addColumn<int>("jetSubIdx", el_jetSubIdx, "");
-    dispJetElectronTab->addColumn<int>("jetSelectedChargedMultiplicity", el_jetSelectedChargedMultiplicity, "");
-    dispJetElectronTab->addColumn<float>("sigmaIetaIeta", el_sigmaIetaIeta, "");
-    dispJetElectronTab->addColumn<float>("deltaPhiSuperClusterTrack", el_deltaPhiSuperClusterTrack, "");
-    dispJetElectronTab->addColumn<float>("deltaEtaSuperClusterTrack", el_deltaEtaSuperClusterTrack, "");
-    dispJetElectronTab->addColumn<float>("eInvMinusPInv", el_eInvMinusPInv, "");
-    dispJetElectronTab->addColumn<float>("hOverE", el_hOverE, "");
-    dispJetElectronTab->addColumn<float>("dxy", el_dxy, "");
-    dispJetElectronTab->addColumn<float>("dz", el_dz, "");
-    dispJetElectronTab->addColumn<float>("3dIP", el_3dIP, "");
-    dispJetElectronTab->addColumn<float>("3dIPSig", el_3dIPSig, "");
     
     auto dispJetElectronVtxTab = std::make_unique<nanoaod::FlatTable>(el_IVF_x.size(), "DispJetElectronVtx", false, false);
     dispJetElectronVtxTab->addColumn<int>("IVF_df", el_IVF_df, "");
@@ -530,29 +380,6 @@ public:
     
     dispJetMuonTab->addColumn<int>("idx", mu_idx, "");
     dispJetMuonTab->addColumn<bool>("lIVF_match", mu_lIVF_match, "");
-    dispJetMuonTab->addColumn<float>("innerTrackValidFraction", mu_innerTrackValidFraction, "");
-    dispJetMuonTab->addColumn<float>("globalTrackNormalizedChi2", mu_globalTrackNormalizedChi2, "");
-    dispJetMuonTab->addColumn<float>("CQChi2Position", mu_CQChi2Position, "");
-    dispJetMuonTab->addColumn<float>("CQTrackKink", mu_CQTrackKink, "");
-    dispJetMuonTab->addColumn<int>("numberOfMatchedStation", mu_numberOfMatchedStation, "");
-    dispJetMuonTab->addColumn<int>("numberOfValidPixelHits", mu_numberOfValidPixelHits, "");
-    dispJetMuonTab->addColumn<int>("numberOfValidTrackerHits", mu_numberOfValidTrackerHits, "");
-    dispJetMuonTab->addColumn<int>("numberInnerHitsMissing", mu_numberInnerHitsMissing, "");
-    dispJetMuonTab->addColumn<int>("trackerLayersWithMeasurement", mu_trackerLayersWithMeasurement, "");
-    dispJetMuonTab->addColumn<int>("numberInnerHits", mu_numberInnerHits, "");
-    dispJetMuonTab->addColumn<float>("relIso0p4", mu_relIso0p4, "");
-    dispJetMuonTab->addColumn<float>("jetPtRatio", mu_jetPtRatio, "");
-    dispJetMuonTab->addColumn<float>("jetPtRel", mu_jetPtRel, "");
-    dispJetMuonTab->addColumn<int>("jetIdx", mu_jetIdx, "");
-    dispJetMuonTab->addColumn<int>("jetFatIdx", mu_jetFatIdx, "");
-    dispJetMuonTab->addColumn<int>("jetSubIdx", mu_jetSubIdx, "");
-    dispJetMuonTab->addColumn<int>("jetSelectedChargedMultiplicity", mu_jetSelectedChargedMultiplicity, "");
-    dispJetMuonTab->addColumn<float>("trackPt", mu_trackPt, "");
-    dispJetMuonTab->addColumn<float>("trackPtErr", mu_trackPtErr, "");
-    dispJetMuonTab->addColumn<float>("dxy", mu_dxy, "");
-    dispJetMuonTab->addColumn<float>("dz", mu_dz, "");
-    dispJetMuonTab->addColumn<float>("3dIP", mu_3dIP, "");
-    dispJetMuonTab->addColumn<float>("3dIPSig", mu_3dIPSig, "");
      
     auto dispJetMuonVtxTab = std::make_unique<nanoaod::FlatTable>(mu_IVF_x.size(), "DispJetMuonVtx", false, false);
     dispJetMuonVtxTab->addColumn<int>("IVF_df", mu_IVF_df, "");
@@ -602,132 +429,6 @@ public:
     iEvent.put(std::move(dispJetMuonTrkTab), "DispJetMuonTrk");
   }      
 };
-
-float DispJetTableProducer::dEtaInSeed(const pat::Electron* el) const {   
-  if( el->superCluster().isNonnull() and el->superCluster()->seed().isNonnull()) return el->deltaEtaSuperClusterTrackAtVtx() - el->superCluster()->eta() + el->superCluster()->seed()->eta();
-  else return std::numeric_limits<float>::max();
-}
-
-template< typename T1, typename T2 > bool isSourceCandidatePtrMatch( const T1& lhs, const T2& rhs ) {
-  
-  for( size_t lhsIndex = 0; lhsIndex < lhs.numberOfSourceCandidatePtrs(); ++lhsIndex ) {
-    auto lhsSourcePtr = lhs.sourceCandidatePtr( lhsIndex );
-    for( size_t rhsIndex = 0; rhsIndex < rhs.numberOfSourceCandidatePtrs(); ++rhsIndex ) {
-      auto rhsSourcePtr = rhs.sourceCandidatePtr( rhsIndex );
-      if( lhsSourcePtr == rhsSourcePtr ) {
-	return true;
-      }
-    }
-  }
-  
-  return false;
-}
-
-int DispJetTableProducer::findMatchedJet(const reco::Candidate& lepton, const edm::Handle< std::vector< pat::Jet > >& jets) {
-  
-  int iJet = -1;
-  
-  unsigned int nJets = jets->size();
-  
-  for(unsigned int i = 0; i < nJets; i++) {
-    const pat::Jet & jet = (*jets)[i];
-    if( isSourceCandidatePtrMatch( lepton, jet ) ) {
-      return i;
-    }
-  }
-  
-  return iJet;
-}
-
-void DispJetTableProducer::fillLeptonJetVariables(const reco::GsfElectron *el, const reco::Muon *mu, edm::Handle< std::vector< pat::Jet > >& jets, const reco::Vertex& vertex, const double rho) {
-   
-  const reco::Candidate *cand = (el) ? dynamic_cast<const reco::Candidate*>(el) : dynamic_cast<const reco::Candidate*>(mu);
-  int matchedJetIdx = findMatchedJet( *cand, jets );
-  
-  bool isElectron = (el);
-  
-  if( isElectron ) el_jetIdx.push_back(matchedJetIdx);
-  else mu_jetIdx.push_back(matchedJetIdx);
-
-  if( matchedJetIdx < 0 ) {
-    if( isElectron ) {
-      float ptRatio = ( 1. / ( 1. + el_relIso0p4.back() ) );
-      el_jetPtRatio.push_back(ptRatio);
-      el_jetPtRel.push_back(0);
-      el_jetSelectedChargedMultiplicity.push_back(0);
-    } else {	   
-      float ptRatio = ( 1. / ( 1. + mu_relIso0p4.back() ) );
-      mu_jetPtRatio.push_back(ptRatio);	 
-      mu_jetPtRel.push_back(0);
-      mu_jetSelectedChargedMultiplicity.push_back(0);
-    }
-  } else {
-    const pat::Jet& jet = (*jets)[matchedJetIdx];
-    auto rawJetP4 = jet.correctedP4("Uncorrected");
-    auto leptonP4 = cand->p4();
-    
-    bool leptonEqualsJet = ( ( rawJetP4 - leptonP4 ).P() < 1e-4 );
-    
-    if( leptonEqualsJet ) {
-      if( isElectron ) {
-	el_jetPtRatio.push_back(1);
-	el_jetPtRel.push_back(0);
-	el_jetSelectedChargedMultiplicity.push_back(0);
-      } else {
-	mu_jetPtRatio.push_back(1);
-	mu_jetPtRel.push_back(0);
-	mu_jetSelectedChargedMultiplicity.push_back(0);	    
-      }	 
-    } else {
-      auto L1JetP4 = jet.correctedP4("L1FastJet");
-      double L2L3JEC = jet.pt()/L1JetP4.pt();
-      auto lepAwareJetP4 = ( L1JetP4 - leptonP4 )*L2L3JEC + leptonP4;
-      
-      float ptRatio = cand->pt() / lepAwareJetP4.pt();
-      float ptRel = leptonP4.Vect().Cross( (lepAwareJetP4 - leptonP4 ).Vect().Unit() ).R();
-      if( isElectron ) {
-	el_jetPtRatio.push_back(ptRatio);
-	el_jetPtRel.push_back(ptRel);
-	el_jetSelectedChargedMultiplicity.push_back(0);
-      } else {
-	mu_jetPtRatio.push_back(ptRatio);
-	mu_jetPtRel.push_back(ptRel);
-	mu_jetSelectedChargedMultiplicity.push_back(0);
-      }
-      
-      for( const auto &daughterPtr : jet.daughterPtrVector() ) {
-	const pat::PackedCandidate& daughter = *( (const pat::PackedCandidate*) daughterPtr.get() );
-	
-	if( daughter.charge() == 0 ) continue;
-	if( daughter.fromPV() < 2 ) continue;
-	if( reco::deltaR( daughter, *cand ) > 0.4 ) continue;
-	if( !daughter.hasTrackDetails() ) continue;
-	
-	auto daughterTrack = daughter.pseudoTrack();
-	    
-	if( daughterTrack.pt() <= 1 ) continue;
-	if( daughterTrack.hitPattern().numberOfValidHits() < 8 ) continue;
-	if( daughterTrack.hitPattern().numberOfValidPixelHits() < 2 ) continue;
-	if( daughterTrack.normalizedChi2() >= 5 ) continue;
-	if( std::abs( daughterTrack.dz( vertex.position() ) ) >= 17 ) continue;
-	if( std::abs( daughterTrack.dxy( vertex.position() ) ) >= 0.2 ) continue;
-	if( isElectron ) ++el_jetSelectedChargedMultiplicity.back();
-	else ++mu_jetSelectedChargedMultiplicity.back();
-      }
-    }      
-  }
-}
-
-float DispJetTableProducer::getPFIso(const pat::Muon& muon) const {
-  return (muon.pfIsolationR04().sumChargedHadronPt +
-	  std::max(0.,
-		   muon.pfIsolationR04().sumNeutralHadronEt + muon.pfIsolationR04().sumPhotonEt -
-		   0.5 * muon.pfIsolationR04().sumPUPt)) / muon.pt();
-}
-
-float DispJetTableProducer::getPFIso(const pat::Electron& electron) const {
-  return electron.userFloat("PFIsoAll04") / electron.pt();
-}
 
 #include "FWCore/Framework/interface/MakerMacros.h"
 DEFINE_FWK_MODULE(DispJetTableProducer);

@@ -53,11 +53,15 @@ DSAmuonVertexTable = cms.EDProducer("MuonVertexTableProducer",
 
 PATmuonExtendedTable = cms.EDProducer("MuonExtendedTableProducer",
     name=cms.string("Muon"),
+    rho=cms.InputTag("fixedGridRhoFastjetAll"),
     muons=cms.InputTag("linkedObjects","muons"),
     dsaMuons=cms.InputTag("displacedStandAloneMuons"),
     primaryVertex=cms.InputTag("offlineSlimmedPrimaryVertices"),
-    beamspot=cms.InputTag("offlineBeamSpot"),
-    generalTracks=cms.InputTag("generalTracks")
+    beamspot=cms.InputTag("offlineBeamSpot"),                        
+    generalTracks=cms.InputTag("generalTracks"),
+    jets=cms.InputTag("linkedObjects","jets"),
+    jetsFat=cms.InputTag("slimmedJetsAK8"),
+    jetsSub=cms.InputTag("slimmedJetsAK8PFPuppiSoftDropPacked", "SubJets")
 )
 
 electronVertexTable = cms.EDProducer("ElectronVertexTableProducer",
@@ -67,13 +71,19 @@ electronVertexTable = cms.EDProducer("ElectronVertexTableProducer",
     primaryVertex=cms.InputTag("offlineSlimmedPrimaryVertices")
 )
 
-dispJetTable = cms.EDProducer("DispJetTableProducer",
-    rho=cms.InputTag("fixedGridRhoFastjetAll"),
+electronExtendedTable = cms.EDProducer("ElectronExtendedTableProducer",
+    name=cms.string("Electron"),
+    rho=cms.InputTag("fixedGridRhoFastjetAll"),                                       
     electrons=cms.InputTag("linkedObjects","electrons"),
-    muons=cms.InputTag("linkedObjects","muons"),
+    primaryVertex=cms.InputTag("offlineSlimmedPrimaryVertices"),
     jets=cms.InputTag("linkedObjects","jets"),
     jetsFat=cms.InputTag("slimmedJetsAK8"),
-    jetsSub=cms.InputTag("slimmedJetsAK8PFPuppiSoftDropPacked", "SubJets"),
+    jetsSub=cms.InputTag("slimmedJetsAK8PFPuppiSoftDropPacked", "SubJets")
+)
+
+dispJetTable = cms.EDProducer("DispJetTableProducer",
+    electrons=cms.InputTag("linkedObjects","electrons"),
+    muons=cms.InputTag("linkedObjects","muons"),
     primaryVertex = cms.InputTag("offlineSlimmedPrimaryVertices"),
     secondaryVertex = cms.InputTag("displacedInclusiveSecondaryVertices")
 )
@@ -130,8 +140,25 @@ def add_electronVertexTables(process):
     process.load('TrackPropagation.SteppingHelixPropagator.SteppingHelixPropagatorAny_cfi')
 
     process.electronVertexTable = electronVertexTable
+    process.electronExtendedTable = electronExtendedTable
+
     process.electronVertexTask = cms.Task(process.electronVertexTable)
+    process.electronExtendedTask = cms.Task(process.electronExtendedTable)
+    
     process.nanoTableTaskCommon.add(process.electronVertexTask)
+    process.nanoTableTaskCommon.add(process.electronExtendedTask)
+
+    return process
+
+def add_muonExtendedTable(process):
+    process.load("TrackingTools.TransientTrack.TransientTrackBuilder_cfi")
+    process.load('TrackPropagation.SteppingHelixPropagator.SteppingHelixPropagatorAny_cfi')
+
+    process.PATmuonExtendedTable = PATmuonExtendedTable
+
+    process.muonExtendedTask = cms.Task(process.PATmuonExtendedTable)
+
+    process.nanoTableTaskCommon.add(process.muonExtendedTask)
 
     return process
 
@@ -149,9 +176,20 @@ def update_genParticleTable(process):
 
 def add_exonanoTables(process):
 
-    # process = add_mdsTables(process) ## Commented out right now because it needs changes in PhysicsTools/NanoAOD
+    process = add_mdsTables(process)
+    process = add_dsamuonTables(process)
+    process = add_electronVertexTables(process)
+    process = add_dispJetTables(process)
+    process = update_genParticleTable(process)
+
+    return process
+
+def add_exonanoTablesMINIAOD(process):
+
+#    process = add_mdsTables(process)
 #    process = add_dsamuonTables(process)
-#    process = add_electronVertexTables(process)
+    process = add_electronVertexTables(process)
+    process = add_muonExtendedTable(process)
     process = add_dispJetTables(process)
     process = update_genParticleTable(process)
 

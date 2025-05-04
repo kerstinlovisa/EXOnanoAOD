@@ -1,6 +1,16 @@
 import FWCore.ParameterSet.Config as cms
+from FWCore.ParameterSet.VarParsing import VarParsing
 
 from Configuration.Eras.Era_Run3_cff import Run3
+
+options = VarParsing('analysis')
+options.register('runOnData',
+                    False,
+                    VarParsing.multiplicity.singleton,
+                    VarParsing.varType.bool,
+                    "If running on data"
+                )
+options.parseArguments()
 
 process = cms.Process('NANO',Run3)
 
@@ -18,14 +28,15 @@ process.load('Configuration.StandardSequences.EndOfProcess_cff')
 process.load('Configuration.StandardSequences.FrontierConditions_GlobalTag_cff')
 
 process.maxEvents = cms.untracked.PSet(
-    input = cms.untracked.int32(100),
+    input = cms.untracked.int32(10),
     output = cms.optional.untracked.allowed(cms.int32,cms.PSet)
 )
 
 # Input source
 process.source = cms.Source("PoolSource",
 #    fileNames = cms.untracked.vstring('/store/mc/Run3Summer23MiniAODv4/TTto2L2Nu_TuneCP5_13p6TeV_powheg-pythia8/MINIAODSIM/130X_mcRun3_2023_realistic_v14-v2/70001/5b425dde-7d94-4469-8558-3ffc4d7d3fd3.root'),
-    fileNames = cms.untracked.vstring('file:/pnfs/iihe/cms/store/user/kskovpen/LRSM/input/5b425dde-7d94-4469-8558-3ffc4d7d3fd3.root'),
+#    fileNames = cms.untracked.vstring('file:/pnfs/iihe/cms/store/user/kskovpen/LRSM/input/5b425dde-7d94-4469-8558-3ffc4d7d3fd3.root'),
+    fileNames = cms.untracked.vstring(options.inputFiles),
     secondaryFileNames = cms.untracked.vstring()
 )
 
@@ -77,7 +88,8 @@ process.NANOAODoutput = cms.OutputModule("NanoAODOutputModule",
         dataTier = cms.untracked.string('NANOAOD'),
         filterName = cms.untracked.string('')
     ),
-    fileName = cms.untracked.string('Run3_2023_PAT_EXONANO_template.root'),
+    fileName = cms.untracked.string('file:{0}'.format(options.outputFile)),
+#    fileName = cms.untracked.string('Run3_2023_PAT_EXONANO_template.root'),
     outputCommands = process.NANOAODEventContent.outputCommands
 )
 
@@ -107,8 +119,8 @@ from PhysicsTools.NanoAOD.nano_cff import nanoAOD_customizeCommon
 process = nanoAOD_customizeCommon(process)
 
 # EXOnanoAOD customisations
-from PhysicsTools.EXOnanoAOD.custom_exo_cff import add_exonanoTables, add_exonanoMCTables
-process = add_exonanoTables(process)
+from PhysicsTools.EXOnanoAOD.custom_exo_cff import add_exonanoTablesMINIAOD, add_exonanoMCTables
+process = add_exonanoTablesMINIAOD(process)
 process = add_exonanoMCTables(process)
 
 # End of customisation functions
