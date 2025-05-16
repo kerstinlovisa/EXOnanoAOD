@@ -113,9 +113,6 @@ void MuonExtendedTableProducer::produce(edm::StreamID, edm::Event& iEvent, const
   GlobalPoint beamSpot(bs.x(), bs.y(), bs.z());
   reco::Vertex beamSpotVertex(beamspots->position(), beamspots->covariance3D());
 
-  // edm::ESHandle<TransientTrackBuilder> builder;
-  // iSetup.get<TransientTrackRecord>().get("TransientTrackBuilder", builder);
-  // auto const& builder = &iSetup.getData(transientTrackBuilderToken_);
   edm::ESHandle<TransientTrackBuilder> builder = iSetup.getHandle(transientTrackBuilderToken_);
 
   unsigned int nMuons = muons->size();
@@ -130,10 +127,8 @@ void MuonExtendedTableProducer::produce(edm::StreamID, edm::Event& iEvent, const
   std::vector<int> jetIdx;
   std::vector<int> jetFatIdx, jetSubIdx;
   std::vector<int> jetSelectedChargedMultiplicity;
-  std::vector<float> dxy, dz, IP3d, IP3dSig;
   
   std::vector<float> dzPV,dzPVErr,dxyPVTraj,dxyPVTrajErr,dxyPVSigned,dxyPVSignedErr,ip3DPVSigned,ip3DPVSignedErr;
-  std::vector<float> dxyBS,dxyBSErr,dzBS,dzBSErr,dxyBSTraj,dxyBSTrajErr,dxyBSSigned,dxyBSSignedErr,ip3DBSSigned,ip3DBSSignedErr;  
 
   std::vector<float> trkNumPlanes,trkNumHits,trkNumDTHits,trkNumCSCHits,trkNumPixelHits(nMuons,-1),trkNumTrkLayers(nMuons,-1),normChi2;
   std::vector<float> outerEta(nMuons,-5),outerPhi(nMuons,-5);
@@ -142,15 +137,11 @@ void MuonExtendedTableProducer::produce(edm::StreamID, edm::Event& iEvent, const
   std::vector<std::vector<float>> nMatchesPerDSA;
   std::vector<float> dsaMatch1,dsaMatch1idx,dsaMatch2,dsaMatch2idx,dsaMatch3,dsaMatch3idx,dsaMatch4,dsaMatch4idx,dsaMatch5,dsaMatch5idx;
 
-  // std::vector<float> displacedTrackIso03, displacedTrackIso04;
-
   for (unsigned int i = 0; i < nMuons; i++) {
     const pat::Muon & muon = (*muons)[i];
     const pat::MuonRef muonRef(muons,i);
 
-    // const auto& track = muon.bestTrack();
-    // const reco::Track* track; // = muon.tunePMuonBestTrack();
-    reco::TrackRef trackRef; // = muonRef->combinedMuon();
+    reco::TrackRef trackRef;
 
     if(muon.isGlobalMuon()) {
       trackRef = muon.combinedMuon();
@@ -162,7 +153,6 @@ void MuonExtendedTableProducer::produce(edm::StreamID, edm::Event& iEvent, const
       trackRef = muon.tunePMuonBestTrack();
     }
 
-    // if (!trackRef.isNonnull()) continue;
     idx.push_back(i);
 
     const auto& track = trackRef.get();
@@ -172,11 +162,6 @@ void MuonExtendedTableProducer::produce(edm::StreamID, edm::Event& iEvent, const
 
     trkPt.push_back(track->pt());
     trkPtErr.push_back(track->ptError());
-
-    dxy.push_back(muon.dB(pat::Muon::PV2D));
-    dz.push_back(muon.dB(pat::Muon::PVDZ));
-    IP3d.push_back(muon.dB(pat::Muon::PV3D));
-    IP3dSig.push_back(fabs(muon.dB(pat::Muon::PV3D)/muon.edB(pat::Muon::PV3D)));
 
     relIso0p4.push_back(getPFIso(muon));
 
@@ -193,7 +178,7 @@ void MuonExtendedTableProducer::produce(edm::StreamID, edm::Event& iEvent, const
     numberOfMatchedStation.push_back(muon.numberOfMatchedStations());
     numberOfValidPixelHits.push_back((!muon.innerTrack().isNull()) ? muon.innerTrack()->hitPattern().numberOfValidPixelHits() : 0);
     numberOfValidTrackerHits.push_back((!muon.innerTrack().isNull()) ? muon.innerTrack()->hitPattern().numberOfValidTrackerHits() : 0);
-    numberInnerHitsMissing.push_back(muon.innerTrack()->hitPattern().numberOfLostHits(reco::HitPattern::MISSING_INNER_HITS));
+    numberInnerHitsMissing.push_back(!muon.innerTrack().isNull() ? muon.innerTrack()->hitPattern().numberOfLostHits(reco::HitPattern::MISSING_INNER_HITS) : 0);
     trackerLayersWithMeasurement.push_back((!muon.innerTrack().isNull()) ? muon.innerTrack()->hitPattern().trackerLayersWithMeasurement() : 0);
     numberInnerHits.push_back((!muon.globalTrack().isNull()) ? muon.globalTrack()->hitPattern().numberOfValidMuonHits() : (!muon.outerTrack().isNull() ? muon.outerTrack()->hitPattern().numberOfValidMuonHits() : 0));
 
@@ -209,20 +194,6 @@ void MuonExtendedTableProducer::produce(edm::StreamID, edm::Event& iEvent, const
     ip3DPVSigned.push_back(IPTools::signedImpactParameter3D(transientTrack, muonRefTrackDir, beamSpotVertex).second.value());
     ip3DPVSignedErr.push_back(IPTools::signedImpactParameter3D(transientTrack, muonRefTrackDir, beamSpotVertex).second.error());  
 
-    dxyBS.push_back(track->dxy(bs));
-    dxyBSErr.push_back(std::hypot(track->dxyError(), beamSpotVertex.zError()));
-    dzBS.push_back(track->dz(bs));
-    dzBSErr.push_back(std::hypot(track->dzError(), beamSpotVertex.zError()));
-    TrajectoryStateClosestToBeamLine trajectoryBS = transientTrack.stateAtBeamLine();
-    dxyBSTraj.push_back(trajectoryBS.transverseImpactParameter().value());
-    dxyBSTrajErr.push_back(trajectoryBS.transverseImpactParameter().error());
-    dxyBSSigned.push_back(IPTools::signedTransverseImpactParameter(transientTrack, muonRefTrackDir, beamSpotVertex).second.value());
-    dxyBSSignedErr.push_back(IPTools::signedTransverseImpactParameter(transientTrack, muonRefTrackDir, beamSpotVertex).second.error());  
-
-    ip3DBSSigned.push_back(IPTools::signedImpactParameter3D(transientTrack, muonRefTrackDir, beamSpotVertex).second.value());
-    ip3DBSSignedErr.push_back(IPTools::signedImpactParameter3D(transientTrack, muonRefTrackDir, beamSpotVertex).second.error()); 
-
-    // if (!trackRef.isNonnull()) continue;
     trkNumPlanes.push_back(track->hitPattern().muonStationsWithValidHits());
     trkNumHits.push_back(track->hitPattern().numberOfValidMuonHits());
     trkNumDTHits.push_back(track->hitPattern().numberOfValidMuonDTHits());
@@ -272,12 +243,7 @@ void MuonExtendedTableProducer::produce(edm::StreamID, edm::Event& iEvent, const
   }
 
   auto tab  = std::make_unique<nanoaod::FlatTable>(nMuons, name_, false, true);
-  tab->addColumn<float>("idx", idx, "LLPnanoAOD muon index");
-
-  tab->addColumn<float>("dxy", dxy, "");
-  tab->addColumn<float>("dz", dz, "");
-  tab->addColumn<float>("IP3d", IP3d, "");
-  tab->addColumn<float>("IP3dSig", IP3dSig, "");
+  tab->addColumn<float>("idx", idx, "EXOnanoAOD muon index");
   
   tab->addColumn<float>("trkPt", trkPt, "");
   tab->addColumn<float>("trkPtErr", trkPtErr, "");
@@ -309,17 +275,6 @@ void MuonExtendedTableProducer::produce(edm::StreamID, edm::Event& iEvent, const
   tab->addColumn<float>("dxyPVSignedErr", dxyPVSignedErr, "");
   tab->addColumn<float>("ip3DPVSigned", ip3DPVSigned, "");
   tab->addColumn<float>("ip3DPVSignedErr", ip3DPVSignedErr, "");
-
-  tab->addColumn<float>("dxyBS", dxyBS, "");
-  tab->addColumn<float>("dxyBSErr", dxyBSErr, "");
-  tab->addColumn<float>("dzBS", dzBS, "");
-  tab->addColumn<float>("dzBSErr", dzBSErr, "");
-  tab->addColumn<float>("dxyBSTraj", dxyBSTraj, "");
-  tab->addColumn<float>("dxyBSTrajErr", dxyBSTrajErr, "");
-  tab->addColumn<float>("dxyBSSigned", dxyBSSigned, "");
-  tab->addColumn<float>("dxyBSSignedErr", dxyBSSignedErr, "");
-  tab->addColumn<float>("ip3DBSSigned", ip3DBSSigned, "");
-  tab->addColumn<float>("ip3DBSSignedErr", ip3DBSSignedErr, "");
 
   tab->addColumn<float>("trkNumPlanes", trkNumPlanes, "");
   tab->addColumn<float>("trkNumHits", trkNumHits, "");

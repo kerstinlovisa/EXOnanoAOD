@@ -22,14 +22,11 @@
 #include "DataFormats/VertexReco/interface/VertexFwd.h"
 #include "DataFormats/VertexReco/interface/Vertex.h"
 
-#include "DataFormats/PatCandidates/interface/PackedCandidate.h"
-
 class DSAMuonTableProducer : public edm::global::EDProducer<> {
   public:
     DSAMuonTableProducer(const edm::ParameterSet &iConfig)
       :
-      //      dsaMuonTag_(consumes<std::vector<reco::Track>>(iConfig.getParameter<edm::InputTag>("dsaMuons"))),
-      dsaMuonTag_(consumes<edm::View<pat::PackedCandidate>>(iConfig.getParameter<edm::InputTag>("dsaMuons"))),
+      dsaMuonTag_(consumes<std::vector<reco::Track>>(iConfig.getParameter<edm::InputTag>("dsaMuons"))),
       muonTag_(consumes<std::vector<pat::Muon>>(iConfig.getParameter<edm::InputTag>("muons"))),
       vtxTag_(consumes<reco::VertexCollection>(iConfig.getParameter<edm::InputTag>("primaryVertex"))),
       bsTag_(consumes<reco::BeamSpot>(iConfig.getParameter<edm::InputTag>("beamspot"))),
@@ -60,8 +57,7 @@ class DSAMuonTableProducer : public edm::global::EDProducer<> {
     int getDTSegments(const reco::Track& dsaMuon) const;
     int getCSCSegments(const reco::Track& dsaMuon) const;
 
-  //    edm::EDGetTokenT<std::vector<reco::Track>> dsaMuonTag_;
-    edm::EDGetTokenT<edm::View<pat::PackedCandidate>> dsaMuonTag_;
+    edm::EDGetTokenT<std::vector<reco::Track>> dsaMuonTag_;
     edm::EDGetTokenT<std::vector<pat::Muon>> muonTag_;
     edm::EDGetTokenT<reco::VertexCollection> vtxTag_;
     edm::EDGetTokenT<reco::BeamSpot> bsTag_;
@@ -90,8 +86,6 @@ void DSAMuonTableProducer::produce(edm::StreamID, edm::Event& iEvent, const edm:
   GlobalPoint beamSpot(bs.x(), bs.y(), bs.z());
   reco::Vertex beamSpotVertex(beamSpotHandle->position(), beamSpotHandle->covariance3D());
 
-  // edm::ESHandle<TransientTrackBuilder> builder;
-  // iSetup.get<TransientTrackRecord>().get("TransientTrackBuilder", builder);
   edm::ESHandle<TransientTrackBuilder> builder = iSetup.getHandle(transientTrackBuilderToken_);
 
   unsigned int nDSAMuons = dsaMuonHandle->size();
@@ -102,7 +96,6 @@ void DSAMuonTableProducer::produce(edm::StreamID, edm::Event& iEvent, const edm:
   std::vector<float> trkNumPlanes,trkNumHits,trkNumDTHits,trkNumCSCHits,normChi2,outerEta, outerPhi;
 
   std::vector<float> dzPV,dzPVErr,dxyPVTraj,dxyPVTrajErr,dxyPVSigned,dxyPVSignedErr,ip3DPVSigned,ip3DPVSignedErr;
-  std::vector<float> dxyBS,dxyBSErr,dzBS,dzBSErr,dxyBSTraj,dxyBSTrajErr,dxyBSSigned,dxyBSSignedErr,ip3DBSSigned,ip3DBSSignedErr;
 
   std::vector<float> displacedId;
   std::vector<std::vector<float>> nMatchesPerMuon;
@@ -155,19 +148,6 @@ void DSAMuonTableProducer::produce(edm::StreamID, edm::Event& iEvent, const edm:
 
     ip3DPVSigned.push_back(IPTools::signedImpactParameter3D(transientTrack, muonRefTrackDir, pv).second.value());
     ip3DPVSignedErr.push_back(IPTools::signedImpactParameter3D(transientTrack, muonRefTrackDir, pv).second.error());  
-
-    dxyBS.push_back(dsaMuon.dxy(bs));
-    dxyBSErr.push_back(std::hypot(dsaMuon.dxyError(), beamSpotVertex.zError()));
-    dzBS.push_back(dsaMuon.dz(bs));
-    dzBSErr.push_back(std::hypot(dsaMuon.dzError(), beamSpotVertex.zError()));
-    TrajectoryStateClosestToBeamLine trajectoryBS = transientTrack.stateAtBeamLine();
-    dxyBSTraj.push_back(trajectoryBS.transverseImpactParameter().value());
-    dxyBSTrajErr.push_back(trajectoryBS.transverseImpactParameter().error());
-    dxyBSSigned.push_back(IPTools::signedTransverseImpactParameter(transientTrack, muonRefTrackDir, beamSpotVertex).second.value());
-    dxyBSSignedErr.push_back(IPTools::signedTransverseImpactParameter(transientTrack, muonRefTrackDir, beamSpotVertex).second.error());  
-
-    ip3DBSSigned.push_back(IPTools::signedImpactParameter3D(transientTrack, muonRefTrackDir, beamSpotVertex).second.value());
-    ip3DBSSignedErr.push_back(IPTools::signedImpactParameter3D(transientTrack, muonRefTrackDir, beamSpotVertex).second.error());
 
     float passesDisplacedId = 0;
     if(passesDisplacedID(dsaMuon)) passesDisplacedId=1;
@@ -266,17 +246,6 @@ void DSAMuonTableProducer::produce(edm::StreamID, edm::Event& iEvent, const edm:
   dsaMuonTab->addColumn<float>("dxyPVSignedErr", dxyPVSignedErr, "");
   dsaMuonTab->addColumn<float>("ip3DPVSigned", ip3DPVSigned, "");
   dsaMuonTab->addColumn<float>("ip3DPVSignedErr", ip3DPVSignedErr, "");
-
-  dsaMuonTab->addColumn<float>("dxyBS", dxyBS, "");
-  dsaMuonTab->addColumn<float>("dxyBSErr", dxyBSErr, "");
-  dsaMuonTab->addColumn<float>("dzBS", dzBS, "");
-  dsaMuonTab->addColumn<float>("dzBSErr", dzBSErr, "");
-  dsaMuonTab->addColumn<float>("dxyBSTraj", dxyBSTraj, "");
-  dsaMuonTab->addColumn<float>("dxyBSTrajErr", dxyBSTrajErr, "");
-  dsaMuonTab->addColumn<float>("dxyBSSigned", dxyBSSigned, "");
-  dsaMuonTab->addColumn<float>("dxyBSSignedErr", dxyBSSignedErr, "");
-  dsaMuonTab->addColumn<float>("ip3DBSSigned", ip3DBSSigned, "");
-  dsaMuonTab->addColumn<float>("ip3DBSSignedErr", ip3DBSSignedErr, "");
 
   dsaMuonTab->addColumn<float>("displacedID", displacedId, "");
 

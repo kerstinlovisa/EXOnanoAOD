@@ -1,8 +1,8 @@
 import FWCore.ParameterSet.Config as cms
 from PhysicsTools.NanoAOD.common_cff import *
 
-from HMTntuple.CSCShowerAnalyzer.cscMDSshowerTable_cfi import cscMDSshowerTable 
-from HMTntuple.CSCShowerAnalyzer.dtMDSshowerTable_cfi import dtMDSshowerTable 
+from PhysicsTools.EXOnanoAOD.cscMDSshowerTable_cfi import cscMDSshowerTable 
+from PhysicsTools.EXOnanoAOD.dtMDSshowerTable_cfi import dtMDSshowerTable 
 
 cscMDSshowerTable = cscMDSshowerTable.clone( 
     name = cms.string("cscMDSCluster"),
@@ -118,7 +118,7 @@ def add_electronVertexTables(process):
 
     process.electronVertexTable = electronVertexTable
     process.electronVertexTask = cms.Task(process.electronVertexTable)
-
+    process.electronExtendedTable = electronExtendedTable
     process.electronExtendedTask = cms.Task(process.electronExtendedTable)
    
     process.nanoTableTaskCommon.add(process.electronVertexTask)
@@ -151,7 +151,7 @@ def update_genParticleTable(process):
 
 def add_exonanoTables(process):
 
-    process = add_mdsTables(process) ## Commented out right now because it needs changes in PhysicsTools/NanoAOD
+    process = add_mdsTables(process)
     process = add_dsamuonTables(process)
     process = add_electronVertexTables(process)
     process = add_dispJetTables(process)
