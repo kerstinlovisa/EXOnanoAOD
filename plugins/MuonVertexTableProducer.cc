@@ -84,9 +84,9 @@ class MuonVertexTableProducer : public edm::global::EDProducer<> {
 
     template <typename MuonType1 = pat::Muon, typename MuonType2>
     float getDisplacedTrackerIsolation(const std::vector<reco::Track>& generalTracks, const MuonType1& muon_1,
-                                      const reco::Vertex muonVertex, const reco::BeamSpot& beamspot, 
-                                      const MuonType2* muon_2 = nullptr, float maxDR = 0.3, float minDR = 0.01,
-                                      float maxDz = 0.5, float maxDxy = 0.2) const;
+				       const reco::Vertex muonVertex, const reco::BeamSpot& beamspot, 
+				       const MuonType2* muon_2 = nullptr, float maxDR = 0.3, float minDR = 0.01,
+				       float maxDz = 0.5, float maxDxy = 0.2) const;
     
     template <typename MuonType=reco::Track>
     float getProximityDeltaR(const MuonType& track, 

@@ -13,6 +13,7 @@
 
 #include "DataFormats/PatCandidates/interface/Muon.h"
 #include "DataFormats/MuonReco/interface/MuonSelectors.h"
+#include "DataFormats/PatCandidates/interface/Jet.h"
 #include "DataFormats/NanoAOD/interface/FlatTable.h"
 #include "DataFormats/PatCandidates/interface/PackedCandidate.h"
 
@@ -28,11 +29,15 @@ class MuonExtendedTableProducer : public edm::global::EDProducer<> {
   public:
     explicit MuonExtendedTableProducer(const edm::ParameterSet &iConfig) :
       name_(iConfig.getParameter<std::string>("name")),
+      rhoTag_(consumes<double>(iConfig.getParameter<edm::InputTag>("rho"))),
       muonTag_(consumes<std::vector<pat::Muon>>(iConfig.getParameter<edm::InputTag>("muons"))),
       dsaMuonTag_(consumes<std::vector<reco::Track>>(iConfig.getParameter<edm::InputTag>("dsaMuons"))),
       vtxTag_(consumes<reco::VertexCollection>(iConfig.getParameter<edm::InputTag>("primaryVertex"))),
       bsTag_(consumes<reco::BeamSpot>(iConfig.getParameter<edm::InputTag>("beamspot"))),
       generalTrackTag_(consumes<std::vector<reco::Track>>(iConfig.getParameter<edm::InputTag>("generalTracks"))),
+      jetTag_(consumes<std::vector<pat::Jet>>(iConfig.getParameter<edm::InputTag>("jets"))),
+      jetFatTag_(consumes<std::vector<pat::Jet>>(iConfig.getParameter<edm::InputTag>("jetsFat"))),
+      jetSubTag_(consumes<std::vector<pat::Jet>>(iConfig.getParameter<edm::InputTag>("jetsSub"))),
       transientTrackBuilderToken_(esConsumes(edm::ESInputTag("", "TransientTrackBuilder")))
     {
       produces<nanoaod::FlatTable>();
@@ -42,11 +47,15 @@ class MuonExtendedTableProducer : public edm::global::EDProducer<> {
 
     static void fillDescriptions(edm::ConfigurationDescriptions & descriptions) {
       edm::ParameterSetDescription desc;
+      desc.add<edm::InputTag>("rho")->setComment("input rho parameter");
       desc.add<edm::InputTag>("muons")->setComment("input muon collection");
       desc.add<edm::InputTag>("dsaMuons")->setComment("input displaced standalone muon collection");
       desc.add<edm::InputTag>("primaryVertex")->setComment("input primary vertex collection");
       desc.add<edm::InputTag>("beamspot")->setComment("input beamspot collection");
       desc.add<edm::InputTag>("generalTracks")->setComment("input generalTracks collection");
+      desc.add<edm::InputTag>("jets")->setComment("input jet collection");
+      desc.add<edm::InputTag>("jetsFat")->setComment("input fat jet collection");
+      desc.add<edm::InputTag>("jetsSub")->setComment("input sub jet collection");
       desc.add<std::string>("name")->setComment("name of the muon nanoaod::FlatTable we are extending");
       descriptions.add("muonTable", desc);
     }
@@ -56,21 +65,30 @@ class MuonExtendedTableProducer : public edm::global::EDProducer<> {
 
     int getMatches(const pat::Muon& muon, const reco::Track& dsaMuon, const float minPositionDiff) const;
 
+    float getPFIso(const pat::Muon& muon) const;
+    int findMatchedJet(const reco::Candidate& lepton, const edm::Handle< std::vector< pat::Jet > >& jets) const;
+    void fillLeptonJetVariables(const reco::Muon *mu, edm::Handle< std::vector< pat::Jet > >& jets, const reco::Vertex& vertex, const double rho, std::vector<int> *jetIdx, std::vector<float> relIso0p4, std::vector<float> *jetPtRatio, std::vector<float> *jetPtRel, std::vector<int> *jetSelectedChargedMultiplicity) const;
+
     std::string name_;
+    edm::EDGetTokenT<double> rhoTag_;
     edm::EDGetTokenT<std::vector<pat::Muon>> muonTag_;
     edm::EDGetTokenT<std::vector<reco::Track>> dsaMuonTag_;
     edm::EDGetTokenT<reco::VertexCollection> vtxTag_;
     edm::EDGetTokenT<reco::BeamSpot> bsTag_;
     edm::EDGetTokenT<std::vector<reco::Track>> generalTrackTag_;
-    edm::ESGetToken<TransientTrackBuilder, TransientTrackRecord> transientTrackBuilderToken_;
-
+    edm::EDGetTokenT<std::vector<pat::Jet> > jetTag_;
+    edm::EDGetTokenT<std::vector<pat::Jet> > jetFatTag_;
+    edm::EDGetTokenT<std::vector<pat::Jet> > jetSubTag_;
+    edm::ESGetToken<TransientTrackBuilder, TransientTrackRecord> transientTrackBuilderToken_;  
 };
 
-void MuonExtendedTableProducer::produce(edm::StreamID, edm::Event& iEvent, const edm::EventSetup& iSetup) const 
+void MuonExtendedTableProducer::produce(edm::StreamID, edm::Event& iEvent, const edm::EventSetup& iSetup) const
 {
 
   float minPositionDiffForMatching = 1e-6;
 
+  edm::Handle<double> rhoHandle;
+  iEvent.getByToken(rhoTag_, rhoHandle);
   edm::Handle<std::vector<pat::Muon>> muons;
   iEvent.getByToken(muonTag_, muons);
   edm::Handle<std::vector<reco::Track>> dsaMuons;
@@ -81,6 +99,12 @@ void MuonExtendedTableProducer::produce(edm::StreamID, edm::Event& iEvent, const
   iEvent.getByToken(bsTag_, beamspots);
   edm::Handle<std::vector<reco::Track>> generalTracks;
   iEvent.getByToken(generalTrackTag_, generalTracks);
+  edm::Handle<std::vector<pat::Jet> > jetHandle;
+  iEvent.getByToken(jetTag_, jetHandle);
+  edm::Handle<std::vector<pat::Jet> > jetFatHandle;
+  iEvent.getByToken(jetFatTag_, jetFatHandle);
+  edm::Handle<std::vector<pat::Jet> > jetSubHandle;
+  iEvent.getByToken(jetSubTag_, jetSubHandle);
 
   const auto& pv = primaryVertices->at(0);
   GlobalPoint primaryVertex(pv.x(), pv.y(), pv.z());
@@ -95,13 +119,21 @@ void MuonExtendedTableProducer::produce(edm::StreamID, edm::Event& iEvent, const
   edm::ESHandle<TransientTrackBuilder> builder = iSetup.getHandle(transientTrackBuilderToken_);
 
   unsigned int nMuons = muons->size();
-  unsigned int nDsaMuons = dsaMuons->size();
-  
+  unsigned int nDsaMuons = dsaMuons->size();  
 
   std::vector<float> idx, charge, trkPt, trkPtErr;
 
+  std::vector<float> innerTrackValidFraction, globalTrackNormalizedChi2, CQChi2Position, CQTrackKink;
+  std::vector<int> numberOfMatchedStation, numberOfValidPixelHits, numberOfValidTrackerHits, numberInnerHitsMissing, trackerLayersWithMeasurement, numberInnerHits;
+  std::vector<float> relIso0p4;
+  std::vector<float> jetPtRatio, jetPtRel;
+  std::vector<int> jetIdx;
+  std::vector<int> jetFatIdx, jetSubIdx;
+  std::vector<int> jetSelectedChargedMultiplicity;
+  std::vector<float> dxy, dz, IP3d, IP3dSig;
+  
   std::vector<float> dzPV,dzPVErr,dxyPVTraj,dxyPVTrajErr,dxyPVSigned,dxyPVSignedErr,ip3DPVSigned,ip3DPVSignedErr;
-  std::vector<float> dxyBS,dxyBSErr,dzBS,dzBSErr,dxyBSTraj,dxyBSTrajErr,dxyBSSigned,dxyBSSignedErr,ip3DBSSigned,ip3DBSSignedErr;
+  std::vector<float> dxyBS,dxyBSErr,dzBS,dzBSErr,dxyBSTraj,dxyBSTrajErr,dxyBSSigned,dxyBSSignedErr,ip3DBSSigned,ip3DBSSignedErr;  
 
   std::vector<float> trkNumPlanes,trkNumHits,trkNumDTHits,trkNumCSCHits,trkNumPixelHits(nMuons,-1),trkNumTrkLayers(nMuons,-1),normChi2;
   std::vector<float> outerEta(nMuons,-5),outerPhi(nMuons,-5);
@@ -140,6 +172,30 @@ void MuonExtendedTableProducer::produce(edm::StreamID, edm::Event& iEvent, const
 
     trkPt.push_back(track->pt());
     trkPtErr.push_back(track->ptError());
+
+    dxy.push_back(muon.dB(pat::Muon::PV2D));
+    dz.push_back(muon.dB(pat::Muon::PVDZ));
+    IP3d.push_back(muon.dB(pat::Muon::PV3D));
+    IP3dSig.push_back(fabs(muon.dB(pat::Muon::PV3D)/muon.edB(pat::Muon::PV3D)));
+
+    relIso0p4.push_back(getPFIso(muon));
+
+    fillLeptonJetVariables(&muon, jetHandle, pv, *rhoHandle, &jetIdx, relIso0p4, &jetPtRatio, &jetPtRel, &jetSelectedChargedMultiplicity);
+
+    const reco::Candidate *mu_cand = dynamic_cast<const reco::Candidate*>(&muon);
+    jetFatIdx.push_back(findMatchedJet(*mu_cand, jetFatHandle));
+    jetSubIdx.push_back(findMatchedJet(*mu_cand, jetSubHandle));
+
+    innerTrackValidFraction.push_back((!muon.innerTrack().isNull()) ? muon.innerTrack()->validFraction() : -1);
+    globalTrackNormalizedChi2.push_back((!muon.globalTrack().isNull()) ? muon.globalTrack()->normalizedChi2() : -1);
+    CQChi2Position.push_back(muon.combinedQuality().chi2LocalPosition);
+    CQTrackKink.push_back(muon.combinedQuality().trkKink);
+    numberOfMatchedStation.push_back(muon.numberOfMatchedStations());
+    numberOfValidPixelHits.push_back((!muon.innerTrack().isNull()) ? muon.innerTrack()->hitPattern().numberOfValidPixelHits() : 0);
+    numberOfValidTrackerHits.push_back((!muon.innerTrack().isNull()) ? muon.innerTrack()->hitPattern().numberOfValidTrackerHits() : 0);
+    numberInnerHitsMissing.push_back(muon.innerTrack()->hitPattern().numberOfLostHits(reco::HitPattern::MISSING_INNER_HITS));
+    trackerLayersWithMeasurement.push_back((!muon.innerTrack().isNull()) ? muon.innerTrack()->hitPattern().trackerLayersWithMeasurement() : 0);
+    numberInnerHits.push_back((!muon.globalTrack().isNull()) ? muon.globalTrack()->hitPattern().numberOfValidMuonHits() : (!muon.outerTrack().isNull() ? muon.outerTrack()->hitPattern().numberOfValidMuonHits() : 0));
 
     dzPV.push_back(track->dz(pv.position()));
     dzPVErr.push_back(std::hypot(track->dzError(), pv.zError()));
@@ -218,8 +274,32 @@ void MuonExtendedTableProducer::produce(edm::StreamID, edm::Event& iEvent, const
   auto tab  = std::make_unique<nanoaod::FlatTable>(nMuons, name_, false, true);
   tab->addColumn<float>("idx", idx, "LLPnanoAOD muon index");
 
+  tab->addColumn<float>("dxy", dxy, "");
+  tab->addColumn<float>("dz", dz, "");
+  tab->addColumn<float>("IP3d", IP3d, "");
+  tab->addColumn<float>("IP3dSig", IP3dSig, "");
+  
   tab->addColumn<float>("trkPt", trkPt, "");
   tab->addColumn<float>("trkPtErr", trkPtErr, "");
+
+  tab->addColumn<float>("relIso0p4", relIso0p4, "");
+  tab->addColumn<float>("jetPtRatio", jetPtRatio, "");
+  tab->addColumn<float>("jetPtRel", jetPtRel, "");
+  tab->addColumn<int>("jetSelectedChargedMultiplicity", jetSelectedChargedMultiplicity, "");
+  tab->addColumn<int>("jetIdx", jetIdx, "");
+  tab->addColumn<int>("jetFatIdx", jetFatIdx, "");
+  tab->addColumn<int>("jetSubIdx", jetSubIdx, "");
+  
+  tab->addColumn<float>("innerTrackValidFraction", innerTrackValidFraction, "");
+  tab->addColumn<float>("globalTrackNormalizedChi2", globalTrackNormalizedChi2, "");
+  tab->addColumn<float>("CQChi2Position", CQChi2Position, "");
+  tab->addColumn<float>("CQTrackKink", CQTrackKink, "");
+  tab->addColumn<int>("numberOfMatchedStation", numberOfMatchedStation, "");
+  tab->addColumn<int>("numberOfValidPixelHits", numberOfValidPixelHits, "");
+  tab->addColumn<int>("numberOfValidTrackerHits", numberOfValidTrackerHits, "");
+  tab->addColumn<int>("numberInnerHitsMissing", numberInnerHitsMissing, "");
+  tab->addColumn<int>("trackerLayersWithMeasurement", trackerLayersWithMeasurement, "");
+  tab->addColumn<int>("numberInnerHits", numberInnerHits, "");
 
   tab->addColumn<float>("dzPV", dzPV, "");
   tab->addColumn<float>("dzPVErr", dzPVErr, "");
@@ -277,30 +357,127 @@ int MuonExtendedTableProducer::getMatches(const pat::Muon& muon, const reco::Tra
 
   int nMatches = 0;
 
-  for (auto& hit : dsaMuon.recHits()){
+  if( dsaMuon.extra().isNonnull() && dsaMuon.extra().isAvailable() ) {
+    
+    for (auto& hit : dsaMuon.recHits()){
 
-    if (!hit->isValid()) continue;
-    DetId id = hit->geographicalId();
-    if (id.det() != DetId::Muon) continue;
+      if (!hit->isValid()) continue;
+      DetId id = hit->geographicalId();
+      if (id.det() != DetId::Muon) continue;
+      
+      if (id.subdetId() == MuonSubdetId::DT || id.subdetId() == MuonSubdetId::CSC){
+	
+	for (auto& chamber : muon.matches()) {
 
-    if (id.subdetId() == MuonSubdetId::DT || id.subdetId() == MuonSubdetId::CSC){
-
-      for (auto& chamber : muon.matches()) {
-
-        if (chamber.id.rawId() != id.rawId()) continue;
-
-        for (auto& segment : chamber.segmentMatches) {
-
-          if (fabs(segment.x - hit->localPosition().x()) < minPositionDiff &&
-              fabs(segment.y - hit->localPosition().y()) < minPositionDiff) {
+	  if (chamber.id.rawId() != id.rawId()) continue;
+	  
+	  for (auto& segment : chamber.segmentMatches) {
+	    
+	    if (fabs(segment.x - hit->localPosition().x()) < minPositionDiff &&
+		fabs(segment.y - hit->localPosition().y()) < minPositionDiff) {
               nMatches++;
               break;
-          }
-        }
+	    }
+	  }
+	}
       }
     }
   }
   return nMatches;
+}
+
+float MuonExtendedTableProducer::getPFIso(const pat::Muon& muon) const {
+  return (muon.pfIsolationR04().sumChargedHadronPt +
+          std::max(0.,
+                   muon.pfIsolationR04().sumNeutralHadronEt + muon.pfIsolationR04().sumPhotonEt -
+                   0.5 * muon.pfIsolationR04().sumPUPt)) / muon.pt();
+}
+
+template< typename T1, typename T2 > bool isSourceCandidatePtrMatch( const T1& lhs, const T2& rhs ) {
+  
+  for( size_t lhsIndex = 0; lhsIndex < lhs.numberOfSourceCandidatePtrs(); ++lhsIndex ) {
+    auto lhsSourcePtr = lhs.sourceCandidatePtr( lhsIndex );
+    for( size_t rhsIndex = 0; rhsIndex < rhs.numberOfSourceCandidatePtrs(); ++rhsIndex ) {
+      auto rhsSourcePtr = rhs.sourceCandidatePtr( rhsIndex );
+      if( lhsSourcePtr == rhsSourcePtr ) {
+	return true;
+      }
+    }
+  }
+  
+  return false;
+}
+
+int MuonExtendedTableProducer::findMatchedJet(const reco::Candidate& lepton, const edm::Handle< std::vector< pat::Jet > >& jets) const {
+
+  int iJet = -1;
+  
+  unsigned int nJets = jets->size();
+  
+  for(unsigned int i = 0; i < nJets; i++) {
+    const pat::Jet & jet = (*jets)[i];
+    if( isSourceCandidatePtrMatch( lepton, jet ) ) {
+      return i;
+    }
+  }
+  
+  return iJet;
+}
+
+void MuonExtendedTableProducer::fillLeptonJetVariables(const reco::Muon *mu, edm::Handle< std::vector< pat::Jet > >& jets, const reco::Vertex& vertex, const double rho, std::vector<int> *jetIdx, std::vector<float> relIso0p4, std::vector<float> *jetPtRatio, std::vector<float> *jetPtRel, std::vector<int> *jetSelectedChargedMultiplicity) const {
+   
+  const reco::Candidate *cand = dynamic_cast<const reco::Candidate*>(mu);
+  int matchedJetIdx = findMatchedJet( *cand, jets );
+  
+  jetIdx->push_back(matchedJetIdx);
+
+  if( matchedJetIdx < 0 ) {
+    float ptRatio = ( 1. / ( 1. + relIso0p4.back() ) );
+    jetPtRatio->push_back(ptRatio);	 
+    jetPtRel->push_back(0);
+    jetSelectedChargedMultiplicity->push_back(0);
+  } else {
+    const pat::Jet& jet = (*jets)[matchedJetIdx];
+    auto rawJetP4 = jet.correctedP4("Uncorrected");
+    auto leptonP4 = cand->p4();
+    
+    bool leptonEqualsJet = ( ( rawJetP4 - leptonP4 ).P() < 1e-4 );
+    
+    if( leptonEqualsJet ) {
+      jetPtRatio->push_back(1);
+      jetPtRel->push_back(0);
+      jetSelectedChargedMultiplicity->push_back(0);	    
+    } else {
+      auto L1JetP4 = jet.correctedP4("L1FastJet");
+      double L2L3JEC = jet.pt()/L1JetP4.pt();
+      auto lepAwareJetP4 = ( L1JetP4 - leptonP4 )*L2L3JEC + leptonP4;
+      
+      float ptRatio = cand->pt() / lepAwareJetP4.pt();
+      float ptRel = leptonP4.Vect().Cross( (lepAwareJetP4 - leptonP4 ).Vect().Unit() ).R();
+      jetPtRatio->push_back(ptRatio);
+      jetPtRel->push_back(ptRel);
+      jetSelectedChargedMultiplicity->push_back(0);
+      
+      for( const auto &daughterPtr : jet.daughterPtrVector() ) {
+	const pat::PackedCandidate& daughter = *( (const pat::PackedCandidate*) daughterPtr.get() );
+	
+	if( daughter.charge() == 0 ) continue;
+	if( daughter.fromPV() < 2 ) continue;
+	if( reco::deltaR( daughter, *cand ) > 0.4 ) continue;
+	if( !daughter.hasTrackDetails() ) continue;
+	
+	auto daughterTrack = daughter.pseudoTrack();
+	    
+	if( daughterTrack.pt() <= 1 ) continue;
+	if( daughterTrack.hitPattern().numberOfValidHits() < 8 ) continue;
+	if( daughterTrack.hitPattern().numberOfValidPixelHits() < 2 ) continue;
+	if( daughterTrack.normalizedChi2() >= 5 ) continue;
+	if( std::abs( daughterTrack.dz( vertex.position() ) ) >= 17 ) continue;
+	if( std::abs( daughterTrack.dxy( vertex.position() ) ) >= 0.2 ) continue;
+	++jetSelectedChargedMultiplicity->back();
+      }
+    }      
+  }
 }
 
 #include "FWCore/Framework/interface/MakerMacros.h"
